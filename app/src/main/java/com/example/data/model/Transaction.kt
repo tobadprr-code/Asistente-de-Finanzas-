@@ -15,6 +15,8 @@ data class Transaction(
     val type: TransactionType,
     val category: String,
     val paymentMethod: String = "Transferencia",
+    val tags: String = "",
+    val assetId: Long? = null,
     val dateMillis: Long = System.currentTimeMillis(),
     val notes: String = ""
 )

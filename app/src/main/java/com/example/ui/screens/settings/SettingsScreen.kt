@@ -65,6 +65,7 @@ fun SettingsScreen(
     val currentCurrency by viewModel.userCurrency.collectAsState()
     val transactions by viewModel.allTransactions.collectAsState()
     val summary by viewModel.financialSummary.collectAsState()
+    val userProfile by viewModel.userProfile.collectAsState()
 
     var showGoalDialog by remember { mutableStateOf(false) }
 
@@ -106,34 +107,55 @@ fun SettingsScreen(
                     .border(1.dp, DarkBorderLine, RoundedCornerShape(20.dp))
                     .padding(20.dp)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(52.dp)
-                            .clip(CircleShape)
-                            .background(IndigoAiAccent),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = "Perfil",
-                            tint = TextPrimaryWhite,
-                            modifier = Modifier.size(28.dp)
-                        )
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(52.dp)
+                                .clip(CircleShape)
+                                .background(IndigoAiAccent),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = "Perfil",
+                                tint = TextPrimaryWhite,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column {
+                            Text(
+                                text = userProfile?.name ?: "Usuario Principal",
+                                color = TextPrimaryWhite,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Meta: ${userProfile?.mainFinancialGoal ?: "Comprar Vehículo"}",
+                                color = EmeraldIncome,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
                     }
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Column {
-                        Text(
-                            text = "Usuario Principal",
-                            color = TextPrimaryWhite,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "Plan V1 Personal - Sin límites",
-                            color = TextSecondaryMuted,
-                            fontSize = 12.sp
-                        )
+
+                    if (!userProfile?.initialAiDiagnosisSummary.isNullOrBlank()) {
+                        Spacer(modifier = Modifier.height(14.dp))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(DarkBorderLine.copy(alpha = 0.2f))
+                                .padding(12.dp)
+                        ) {
+                            Text(
+                                text = "Diagnóstico IA: ${userProfile?.initialAiDiagnosisSummary}",
+                                color = TextSecondaryMuted,
+                                fontSize = 12.sp,
+                                lineHeight = 16.sp
+                            )
+                        }
                     }
                 }
             }
@@ -234,15 +256,29 @@ fun SettingsScreen(
             }
         }
 
-        // 4. Objetivos
+        // 4. Objetivos y Diagnóstico
         item {
-            SettingsActionCard(
-                title = "Gestionar Objetivos",
-                subtitle = "Agregá o modificá metas financieras (Ej: Comprar Hilux)",
-                icon = Icons.Default.Flag,
-                iconTint = IndigoAiAccent,
-                onClick = { showGoalDialog = true }
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                SettingsActionCard(
+                    title = "Re-realizar Diagnóstico IA",
+                    subtitle = "Conversá de nuevo con la IA sobre cómo manejás tu dinero",
+                    icon = Icons.Default.Person,
+                    iconTint = IndigoAiAccent,
+                    onClick = {
+                        userProfile?.let { prof ->
+                            viewModel.saveUserProfile(prof.copy(isOnboardingCompleted = false))
+                        }
+                    }
+                )
+
+                SettingsActionCard(
+                    title = "Gestionar Objetivos",
+                    subtitle = "Agregá o modificá metas financieras (Ej: Comprar Hilux)",
+                    icon = Icons.Default.Flag,
+                    iconTint = EmeraldIncome,
+                    onClick = { showGoalDialog = true }
+                )
+            }
         }
 
         item { Spacer(modifier = Modifier.height(80.dp)) }

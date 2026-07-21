@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -19,10 +20,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.example.ui.components.BottomNavBar
 import com.example.ui.components.NavDestination
+import com.example.ui.screens.assets.AssetsScreen
 import com.example.ui.screens.chat.ChatScreen
 import com.example.ui.screens.dashboard.DashboardScreen
 import com.example.ui.screens.history.HistoryScreen
 import com.example.ui.screens.home.HomeScreen
+import com.example.ui.screens.onboarding.OnboardingScreen
 import com.example.ui.screens.settings.SettingsScreen
 import com.example.ui.theme.ObsidianBackground
 import com.example.ui.theme.ValorTheme
@@ -38,47 +41,63 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             ValorTheme {
+                val userProfile by viewModel.userProfile.collectAsState()
                 var currentDestination by remember { mutableStateOf(NavDestination.HOME) }
 
-                Scaffold(
-                    bottomBar = {
-                        BottomNavBar(
-                            currentDestination = currentDestination,
-                            onNavigate = { destination ->
-                                currentDestination = destination
-                            }
-                        )
-                    },
-                    containerColor = ObsidianBackground,
-                    modifier = Modifier.fillMaxSize()
-                ) { innerPadding ->
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(ObsidianBackground)
-                            .padding(innerPadding)
-                    ) {
-                        Crossfade(
-                            targetState = currentDestination,
-                            label = "ScreenTransition"
-                        ) { destination ->
-                            when (destination) {
-                                NavDestination.HOME -> HomeScreen(
-                                    viewModel = viewModel,
-                                    onNavigateToChat = { currentDestination = NavDestination.CHAT }
-                                )
-                                NavDestination.DASHBOARD -> DashboardScreen(
-                                    viewModel = viewModel
-                                )
-                                NavDestination.HISTORY -> HistoryScreen(
-                                    viewModel = viewModel
-                                )
-                                NavDestination.CHAT -> ChatScreen(
-                                    viewModel = viewModel
-                                )
-                                NavDestination.SETTINGS -> SettingsScreen(
-                                    viewModel = viewModel
-                                )
+                // Check if onboarding is completed
+                val isOnboardingCompleted = userProfile?.isOnboardingCompleted == true
+
+                if (!isOnboardingCompleted && userProfile != null) {
+                    OnboardingScreen(
+                        viewModel = viewModel,
+                        onOnboardingCompleted = {
+                            // Onboarding completed, state updates via ViewModel
+                        }
+                    )
+                } else {
+                    Scaffold(
+                        bottomBar = {
+                            BottomNavBar(
+                                currentDestination = currentDestination,
+                                onNavigate = { destination ->
+                                    currentDestination = destination
+                                }
+                            )
+                        },
+                        containerColor = ObsidianBackground,
+                        modifier = Modifier.fillMaxSize()
+                    ) { innerPadding ->
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(ObsidianBackground)
+                                .padding(innerPadding)
+                        ) {
+                            Crossfade(
+                                targetState = currentDestination,
+                                label = "ScreenTransition"
+                            ) { destination ->
+                                when (destination) {
+                                    NavDestination.HOME -> HomeScreen(
+                                        viewModel = viewModel,
+                                        onNavigateToChat = { currentDestination = NavDestination.CHAT }
+                                    )
+                                    NavDestination.DASHBOARD -> DashboardScreen(
+                                        viewModel = viewModel
+                                    )
+                                    NavDestination.ASSETS -> AssetsScreen(
+                                        viewModel = viewModel
+                                    )
+                                    NavDestination.HISTORY -> HistoryScreen(
+                                        viewModel = viewModel
+                                    )
+                                    NavDestination.CHAT -> ChatScreen(
+                                        viewModel = viewModel
+                                    )
+                                    NavDestination.SETTINGS -> SettingsScreen(
+                                        viewModel = viewModel
+                                    )
+                                }
                             }
                         }
                     }

@@ -4,27 +4,11 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.PieChart
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.outlined.AutoAwesome
-import androidx.compose.material.icons.outlined.History
-import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.PieChart
-import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,13 +19,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ui.theme.DarkBorderLine
-import com.example.ui.theme.DarkSurfaceCard
-import com.example.ui.theme.IndigoAiAccent
-import com.example.ui.theme.TextPrimaryWhite
-import com.example.ui.theme.TextSecondaryMuted
+import com.example.ui.theme.*
 
 enum class NavDestination(
     val title: String,
@@ -50,6 +32,7 @@ enum class NavDestination(
 ) {
     HOME("Inicio", Icons.Filled.Home, Icons.Outlined.Home),
     DASHBOARD("Dashboard", Icons.Filled.PieChart, Icons.Outlined.PieChart),
+    ASSETS("Activos", Icons.Filled.DirectionsCar, Icons.Outlined.DirectionsCar),
     HISTORY("Historial", Icons.Filled.History, Icons.Outlined.History),
     CHAT("Asesor IA", Icons.Filled.AutoAwesome, Icons.Outlined.AutoAwesome),
     SETTINGS("Ajustes", Icons.Filled.Settings, Icons.Outlined.Settings)
@@ -63,27 +46,28 @@ fun BottomNavBar(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(DarkSurfaceCard)
+            .background(NexusBlackPrimary)
             .navigationBarsPadding()
+            .testTag("bottom_nav_bar")
     ) {
         Column {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(1.dp)
-                    .background(DarkBorderLine)
+                    .background(NexusBorderSubtle)
             )
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 8.dp, horizontal = 12.dp),
+                    .padding(vertical = 8.dp, horizontal = 6.dp),
                 horizontalArrangement = Arrangement.SpaceAround,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 NavDestination.values().forEach { destination ->
                     val isSelected = destination == currentDestination
                     val iconColor by animateColorAsState(
-                        targetValue = if (isSelected) IndigoAiAccent else TextSecondaryMuted,
+                        targetValue = if (isSelected) NexusNeonGreen else NexusGray500,
                         label = "color"
                     )
 
@@ -95,18 +79,20 @@ fun BottomNavBar(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = null
                             ) { onNavigate(destination) }
-                            .padding(vertical = 6.dp, horizontal = 12.dp)
+                            .padding(vertical = 6.dp, horizontal = 8.dp)
+                            .testTag("nav_tab_${destination.name.lowercase()}")
                     ) {
                         Icon(
                             imageVector = if (isSelected) destination.selectedIcon else destination.unselectedIcon,
                             contentDescription = destination.title,
                             tint = iconColor,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(22.dp)
                         )
                         Text(
                             text = destination.title,
-                            color = if (isSelected) TextPrimaryWhite else TextSecondaryMuted,
-                            fontSize = 11.sp,
+                            color = if (isSelected) NexusPureWhite else NexusGray500,
+                            fontSize = 10.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                             modifier = Modifier.padding(top = 4.dp)
                         )
                     }
@@ -115,3 +101,4 @@ fun BottomNavBar(
         }
     }
 }
+

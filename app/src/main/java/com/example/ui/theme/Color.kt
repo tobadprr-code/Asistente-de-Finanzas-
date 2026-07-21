@@ -2,22 +2,50 @@ package com.example.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val ObsidianBackground = Color(0xFF090D16)
-val DarkSurfaceCard = Color(0xFF131A29)
-val DarkSurfaceCardElevated = Color(0xFF1C2538)
-val DarkBorderLine = Color(0xFF26334D)
+// NEXUS Official Palette
+val NexusBlackPrimary = Color(0xFF0A0A0A)
+val NexusBlackSecondary = Color(0xFF161616)
+val NexusBlackCard = Color(0xFF121212)
 
-val EmeraldIncome = Color(0xFF10B981)
-val EmeraldIncomeContainer = Color(0xFF064E3B)
+val NexusNeonGreen = Color(0xFF39FF14)
+val NexusNeonGreenGlow = Color(0x3339FF14)
+val NexusNeonGreenDark = Color(0xFF28C70E)
 
-val RoseExpense = Color(0xFFF43F5E)
-val RoseExpenseContainer = Color(0xFF881337)
+val NexusPureWhite = Color(0xFFFFFFFF)
 
-val IndigoAiAccent = Color(0xFF6366F1)
-val CyanAiAccent = Color(0xFF38BDF8)
+val NexusGray100 = Color(0xFFF5F5F5)
+val NexusGray300 = Color(0xFFD1D5DB)
+val NexusGray500 = Color(0xFF6B7280)
+val NexusGray700 = Color(0xFF374151)
 
-val TextPrimaryWhite = Color(0xFFF8FAFC)
-val TextSecondaryMuted = Color(0xFF94A3B8)
-val TextTertiaryDark = Color(0xFF64748B)
+// Financial Indicators
+val NexusIncomeGreen = Color(0xFF39FF14)
+val NexusExpenseRed = Color(0xFFFF3B30)
 
-val GlassOverlay = Color(0x1AFFFFFF)
+// Glassmorphism & Borders
+val NexusBorderDark = Color(0x1FFFFFFF)
+val NexusBorderSubtle = Color(0xFF262626)
+val NexusGlassOverlay = Color(0x0DFFFFFF)
+val NexusInputBackground = Color(0xFF1B1B1B)
+
+// Theme Mappings
+val ObsidianBackground = NexusBlackPrimary
+val DarkSurfaceCard = NexusBlackSecondary
+val DarkSurfaceCardElevated = NexusBlackCard
+val DarkBorderLine = NexusBorderSubtle
+
+val EmeraldIncome = NexusIncomeGreen
+val EmeraldIncomeContainer = Color(0x1F39FF14)
+
+val RoseExpense = NexusExpenseRed
+val RoseExpenseContainer = Color(0x1FFF3B30)
+
+val IndigoAiAccent = NexusNeonGreen
+val CyanAiAccent = Color(0xFF00E5FF)
+
+val TextPrimaryWhite = NexusPureWhite
+val TextSecondaryMuted = NexusGray300
+val TextTertiaryDark = NexusGray500
+
+val GlassOverlay = NexusGlassOverlay
+

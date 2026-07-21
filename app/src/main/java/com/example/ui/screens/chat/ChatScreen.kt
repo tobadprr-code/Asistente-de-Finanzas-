@@ -3,17 +3,7 @@ package com.example.ui.screens.chat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -27,35 +17,22 @@ import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.ChatMessage
 import com.example.data.model.MessageSender
-import com.example.data.model.TransactionType
+import com.example.ui.components.NexusBadge
+import com.example.ui.components.NexusInput
+import com.example.ui.components.NexusTopBar
 import com.example.ui.components.VoiceRecordingModal
-import com.example.ui.theme.CyanAiAccent
-import com.example.ui.theme.DarkBorderLine
-import com.example.ui.theme.DarkSurfaceCard
-import com.example.ui.theme.EmeraldIncome
-import com.example.ui.theme.IndigoAiAccent
-import com.example.ui.theme.ObsidianBackground
-import com.example.ui.theme.RoseExpense
-import com.example.ui.theme.TextPrimaryWhite
-import com.example.ui.theme.TextSecondaryMuted
+import com.example.ui.theme.*
 import com.example.ui.viewmodel.FinanceViewModel
 import com.example.util.CurrencyFormatter
 
@@ -65,19 +42,26 @@ fun ChatScreen(
 ) {
     val messages by viewModel.chatMessages.collectAsState()
     val currencySymbol by viewModel.userCurrency.collectAsState()
+    val isAiThinking by viewModel.isAiThinking.collectAsState()
+    val pendingSession by viewModel.activePendingSession.collectAsState()
+
     var inputText by remember { mutableStateOf("") }
     var showVoiceModal by remember { mutableStateOf(false) }
 
     val listState = rememberLazyListState()
 
-    val quickPrompts = listOf(
-        "Vendí un Gol por 8 millones",
-        "¿Cuánto gasté este mes?",
-        "¿Cómo viene mi economía?",
-        "Gasté 45 mil en la farmacia"
-    )
+    val dynamicPrompts = when {
+        pendingSession?.amount == null -> listOf("8 millones", "12 millones", "45 mil", "250 mil")
+        pendingSession?.paymentMethod.isNullOrBlank() -> listOf("Transferencia", "Efectivo", "Mercado Pago", "Banco")
+        else -> listOf(
+            "Vendí un Gol",
+            "Gasté 45 mil en la farmacia",
+            "¿Cuánto gasté este mes?",
+            "¿Cómo viene mi economía?"
+        )
+    }
 
-    LaunchedEffect(messages.size) {
+    LaunchedEffect(messages.size, isAiThinking) {
         if (messages.isNotEmpty()) {
             listState.animateScrollToItem(messages.size - 1)
         }
@@ -86,51 +70,56 @@ fun ChatScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(ObsidianBackground)
+            .background(NexusBlackPrimary)
     ) {
-        // Chat Header
+        // Top Bar
+        NexusTopBar(userName = "Martín", notificationCount = 3)
+
+        // Chat Header Title Card
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(DarkSurfaceCard)
-                .padding(horizontal = 18.dp, vertical = 14.dp),
+                .background(NexusBlackSecondary)
+                .padding(horizontal = 18.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(36.dp)
                     .clip(CircleShape)
-                    .background(IndigoAiAccent.copy(alpha = 0.2f)),
+                    .background(NexusNeonGreen.copy(alpha = 0.15f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.AutoAwesome,
                     contentDescription = "AI",
-                    tint = CyanAiAccent,
-                    modifier = Modifier.size(22.dp)
+                    tint = NexusNeonGreen,
+                    modifier = Modifier.size(20.dp)
                 )
             }
             Spacer(modifier = Modifier.width(12.dp))
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "ASESOR FINANCIERO IA",
-                    color = TextPrimaryWhite,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold
+                    text = "NEXUS FINANCIERO IA",
+                    color = NexusPureWhite,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.5.sp
                 )
                 Text(
-                    text = "Respuestas en tiempo real con datos reales",
-                    color = TextSecondaryMuted,
+                    text = "Registro por conversación y análisis",
+                    color = NexusGray500,
                     fontSize = 11.sp
                 )
             }
+            NexusBadge(text = "CONECTADO", isNeon = true)
         }
 
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(1.dp)
-                .background(DarkBorderLine)
+                .background(NexusBorderSubtle)
         )
 
         // Messages List
@@ -138,13 +127,46 @@ fun ChatScreen(
             state = listState,
             modifier = Modifier
                 .weight(1f)
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = 16.dp)
+                .testTag("chat_messages_list"),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item { Spacer(modifier = Modifier.height(12.dp)) }
 
             items(messages) { msg ->
                 ChatMessageBubble(msg = msg, currencySymbol = currencySymbol)
+            }
+
+            if (isAiThinking) {
+                item {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(NexusBlackSecondary)
+                                .border(1.dp, NexusNeonGreen.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
+                                .padding(horizontal = 14.dp, vertical = 10.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.AutoAwesome,
+                                    contentDescription = "Pensando",
+                                    tint = NexusNeonGreen,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "NEXUS está procesando...",
+                                    color = NexusGray300,
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
+                    }
+                }
             }
 
             item { Spacer(modifier = Modifier.height(8.dp)) }
@@ -157,19 +179,21 @@ fun ChatScreen(
                 .padding(horizontal = 12.dp, vertical = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(quickPrompts) { prompt ->
+            items(dynamicPrompts) { prompt ->
                 Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(DarkSurfaceCard)
-                        .border(1.dp, DarkBorderLine, RoundedCornerShape(12.dp))
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(NexusBlackSecondary)
+                        .border(1.dp, NexusBorderSubtle, RoundedCornerShape(16.dp))
                         .clickable { viewModel.sendChatMessage(prompt) }
                         .padding(horizontal = 12.dp, vertical = 8.dp)
+                        .testTag("quick_prompt_$prompt")
                 ) {
                     Text(
                         text = prompt,
-                        color = TextPrimaryWhite,
-                        fontSize = 12.sp
+                        color = NexusPureWhite,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
                     )
                 }
             }
@@ -179,7 +203,7 @@ fun ChatScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(DarkSurfaceCard)
+                .background(NexusBlackSecondary)
                 .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -187,40 +211,28 @@ fun ChatScreen(
                 onClick = { showVoiceModal = true },
                 modifier = Modifier
                     .clip(CircleShape)
-                    .background(IndigoAiAccent.copy(alpha = 0.2f))
+                    .background(NexusBlackCard)
+                    .border(1.dp, NexusBorderSubtle, CircleShape)
                     .size(42.dp)
+                    .testTag("voice_button")
             ) {
                 Icon(
                     imageVector = Icons.Default.Mic,
                     contentDescription = "Grabar voz",
-                    tint = IndigoAiAccent,
+                    tint = NexusNeonGreen,
                     modifier = Modifier.size(20.dp)
                 )
             }
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            OutlinedTextField(
+            NexusInput(
                 value = inputText,
                 onValueChange = { inputText = it },
-                placeholder = {
-                    Text(
-                        text = "Escribí o hablá un movimiento...",
-                        color = TextSecondaryMuted,
-                        fontSize = 13.sp
-                    )
-                },
-                modifier = Modifier.weight(1f),
-                singleLine = true,
-                shape = RoundedCornerShape(20.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = IndigoAiAccent,
-                    unfocusedBorderColor = DarkBorderLine,
-                    focusedTextColor = TextPrimaryWhite,
-                    unfocusedTextColor = TextPrimaryWhite,
-                    focusedContainerColor = DarkBorderLine.copy(alpha = 0.2f),
-                    unfocusedContainerColor = DarkBorderLine.copy(alpha = 0.2f)
-                )
+                placeholder = "Escribí o hablá un movimiento...",
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag("chat_input_field")
             )
 
             Spacer(modifier = Modifier.width(8.dp))
@@ -234,13 +246,14 @@ fun ChatScreen(
                 },
                 modifier = Modifier
                     .clip(CircleShape)
-                    .background(IndigoAiAccent)
+                    .background(NexusNeonGreen)
                     .size(42.dp)
+                    .testTag("send_button")
             ) {
                 Icon(
                     imageVector = Icons.Default.Send,
                     contentDescription = "Enviar",
-                    tint = TextPrimaryWhite,
+                    tint = NexusBlackPrimary,
                     modifier = Modifier.size(18.dp)
                 )
             }
@@ -278,10 +291,10 @@ fun ChatMessageBubble(
                         bottomEnd = if (isUser) 4.dp else 16.dp
                     )
                 )
-                .background(if (isUser) IndigoAiAccent else DarkSurfaceCard)
+                .background(if (isUser) NexusNeonGreen else NexusBlackSecondary)
                 .border(
                     width = 1.dp,
-                    color = if (isUser) IndigoAiAccent else DarkBorderLine,
+                    color = if (isUser) NexusNeonGreen else NexusBorderSubtle,
                     shape = RoundedCornerShape(
                         topStart = 16.dp,
                         topEnd = 16.dp,
@@ -294,9 +307,10 @@ fun ChatMessageBubble(
             Column {
                 Text(
                     text = msg.text,
-                    color = TextPrimaryWhite,
+                    color = if (isUser) NexusBlackPrimary else NexusPureWhite,
                     fontSize = 14.sp,
-                    lineHeight = 20.sp
+                    lineHeight = 20.sp,
+                    fontWeight = if (isUser) FontWeight.Medium else FontWeight.Normal
                 )
 
                 if (msg.isAutoRegisteredTx && msg.registeredTitle != null && msg.registeredAmount != null) {
@@ -305,28 +319,29 @@ fun ChatMessageBubble(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
-                            .background(DarkBorderLine.copy(alpha = 0.5f))
+                            .background(NexusBlackCard)
+                            .border(1.dp, NexusNeonGreen.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
                             .padding(10.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 imageVector = Icons.Default.CheckCircle,
                                 contentDescription = "Registrado",
-                                tint = EmeraldIncome,
+                                tint = NexusNeonGreen,
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Column {
                                 Text(
                                     text = "REGISTRADO AUTOMÁTICAMENTE",
-                                    color = EmeraldIncome,
+                                    color = NexusNeonGreen,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = 0.5.sp
                                 )
                                 Text(
                                     text = "${msg.registeredTitle}: ${CurrencyFormatter.format(msg.registeredAmount, currencySymbol)}",
-                                    color = TextPrimaryWhite,
+                                    color = NexusPureWhite,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
@@ -341,9 +356,10 @@ fun ChatMessageBubble(
 
         Text(
             text = CurrencyFormatter.formatDateShort(msg.timestamp),
-            color = TextSecondaryMuted,
+            color = NexusGray500,
             fontSize = 10.sp,
             modifier = Modifier.padding(horizontal = 4.dp)
         )
     }
 }
+

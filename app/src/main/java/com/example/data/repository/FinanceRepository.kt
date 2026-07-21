@@ -1,9 +1,19 @@
 package com.example.data.repository
 
+import com.example.data.local.AssetDao
 import com.example.data.local.GoalDao
+import com.example.data.local.TimelineEventDao
 import com.example.data.local.TransactionDao
+import com.example.data.local.UserProfileDao
+import com.example.data.local.AiInsightDao
+import com.example.data.local.AppNotificationDao
+import com.example.data.model.AiInsight
+import com.example.data.model.AppNotification
+import com.example.data.model.Asset
 import com.example.data.model.Goal
+import com.example.data.model.TimelineEvent
 import com.example.data.model.Transaction
+import com.example.data.model.UserProfile
 import com.example.data.model.TransactionType
 import com.example.data.model.FinancialSummary
 import com.example.data.model.CategorySummary
@@ -13,10 +23,25 @@ import kotlinx.coroutines.flow.map
 
 class FinanceRepository(
     private val transactionDao: TransactionDao,
-    private val goalDao: GoalDao
+    private val goalDao: GoalDao,
+    private val userProfileDao: UserProfileDao,
+    private val assetDao: AssetDao,
+    private val timelineEventDao: TimelineEventDao,
+    private val aiInsightDao: AiInsightDao,
+    private val appNotificationDao: AppNotificationDao
 ) {
     val allTransactions: Flow<List<Transaction>> = transactionDao.getAllTransactions()
     val allGoals: Flow<List<Goal>> = goalDao.getAllGoals()
+    val userProfile: Flow<UserProfile?> = userProfileDao.getUserProfile()
+    val allAssets: Flow<List<Asset>> = assetDao.getAllAssets()
+    val allTimelineEvents: Flow<List<TimelineEvent>> = timelineEventDao.getAllEvents()
+    val allInsights: Flow<List<AiInsight>> = aiInsightDao.getAllInsights()
+    val allNotifications: Flow<List<AppNotification>> = appNotificationDao.getAllNotifications()
+    val unreadNotificationsCount: Flow<Int> = appNotificationDao.getUnreadCount()
+
+    suspend fun saveUserProfile(profile: UserProfile) {
+        userProfileDao.saveUserProfile(profile)
+    }
 
     val financialSummary: Flow<FinancialSummary> = allTransactions.map { list ->
         var income = 0.0
@@ -63,7 +88,14 @@ class FinanceRepository(
     }
 
     suspend fun insertTransaction(transaction: Transaction): Long {
-        return transactionDao.insertTransaction(transaction)
+        val id = transactionDao.insertTransaction(transaction)
+        logEvent(
+            title = "Transacción Registrada",
+            description = "${if (transaction.type == TransactionType.INCOME) "Ingreso" else "Egreso"} de $${transaction.amount} en ${transaction.category}",
+            eventType = "TRANSACTION",
+            tags = transaction.tags
+        )
+        return id
     }
 
     suspend fun updateTransaction(transaction: Transaction) {
@@ -74,8 +106,48 @@ class FinanceRepository(
         transactionDao.deleteTransactionById(id)
     }
 
+    // Asset operations
+    suspend fun insertAsset(asset: Asset): Long {
+        val id = assetDao.insertAsset(asset)
+        logEvent(
+            title = "Activo Registrado: ${asset.name}",
+            description = "Compra por $${asset.purchasePrice}. Categ: ${asset.category}",
+            eventType = "ASSET_BUY",
+            tags = asset.tags
+        )
+        return id
+    }
+
+    suspend fun updateAsset(asset: Asset) {
+        assetDao.updateAsset(asset)
+        if (asset.status == "SOLD") {
+            logEvent(
+                title = "Activo Vendido: ${asset.name}",
+                description = "Venta por $${asset.salePrice}. Ganancia Neta: $${asset.profit} (${String.format("%.1f", asset.roiPercentage)}% ROI)",
+                eventType = "ASSET_SALE",
+                tags = asset.tags
+            )
+            addNotification(
+                title = "Venta de ${asset.name}",
+                message = "Generaste un margen neto de $${String.format("%,.0f", asset.profit)} (${String.format("%.1f", asset.roiPercentage)}% ROI)!",
+                type = "INSIGHT"
+            )
+        }
+    }
+
+    suspend fun deleteAsset(id: Long) {
+        assetDao.deleteAsset(id)
+    }
+
+    // Goal operations
     suspend fun insertGoal(goal: Goal): Long {
-        return goalDao.insertGoal(goal)
+        val id = goalDao.insertGoal(goal)
+        logEvent(
+            title = "Nueva Meta: ${goal.title}",
+            description = "Objetivo $${goal.targetAmount}",
+            eventType = "GOAL_PROGRESS"
+        )
+        return id
     }
 
     suspend fun updateGoal(goal: Goal) {
@@ -86,10 +158,46 @@ class FinanceRepository(
         goalDao.deleteGoalById(id)
     }
 
+    // Timeline, Insights & Notifications
+    suspend fun logEvent(title: String, description: String, eventType: String, tags: String = "") {
+        timelineEventDao.insertEvent(
+            TimelineEvent(
+                title = title,
+                description = description,
+                eventType = eventType,
+                tags = tags
+            )
+        )
+    }
+
+    suspend fun addInsight(title: String, content: String, insightType: String = "INSIGHT", metricImpact: String = "") {
+        aiInsightDao.insertInsight(
+            AiInsight(
+                title = title,
+                content = content,
+                insightType = insightType,
+                metricImpact = metricImpact
+            )
+        )
+    }
+
+    suspend fun addNotification(title: String, message: String, type: String = "INFO") {
+        appNotificationDao.insertNotification(
+            AppNotification(
+                title = title,
+                message = message,
+                type = type
+            )
+        )
+    }
+
+    suspend fun markNotificationsRead() {
+        appNotificationDao.markAllAsRead()
+    }
+
     suspend fun seedInitialDataIfEmpty() {
         val currentTx = allTransactions.first()
         if (currentTx.isEmpty()) {
-            // Seed realistic V1 Argentine/LatAm finance data as requested in prompt ($4.200.000 available balance baseline)
             val now = System.currentTimeMillis()
             val dayMillis = 86400000L
 
@@ -100,6 +208,7 @@ class FinanceRepository(
                     type = TransactionType.INCOME,
                     category = "Trabajos",
                     paymentMethod = "Transferencia",
+                    tags = "#consultoria #cobro",
                     dateMillis = now - (dayMillis * 2),
                     notes = "Proyecto de consultoría"
                 )
@@ -111,8 +220,9 @@ class FinanceRepository(
                     type = TransactionType.INCOME,
                     category = "Ventas",
                     paymentMethod = "Transferencia",
+                    tags = "#usados #moto",
                     dateMillis = now - (dayMillis * 5),
-                    notes = "Moto usaba"
+                    notes = "Moto usada"
                 )
             )
             transactionDao.insertTransaction(
@@ -122,41 +232,9 @@ class FinanceRepository(
                     type = TransactionType.EXPENSE,
                     category = "Alimentación",
                     paymentMethod = "Tarjeta",
+                    tags = "#gastoshogar",
                     dateMillis = now - (dayMillis * 1),
                     notes = "Compras mensuales"
-                )
-            )
-            transactionDao.insertTransaction(
-                Transaction(
-                    title = "Mantenimiento Vehículo",
-                    amount = 120000.0,
-                    type = TransactionType.EXPENSE,
-                    category = "Vehículos",
-                    paymentMethod = "Efectivo",
-                    dateMillis = now - (dayMillis * 3),
-                    notes = "Cambio de aceite"
-                )
-            )
-            transactionDao.insertTransaction(
-                Transaction(
-                    title = "Servicios y Utilidades",
-                    amount = 270000.0,
-                    type = TransactionType.EXPENSE,
-                    category = "Servicios",
-                    paymentMethod = "Transferencia",
-                    dateMillis = now - (dayMillis * 4),
-                    notes = "Luz, internet, agua"
-                )
-            )
-            transactionDao.insertTransaction(
-                Transaction(
-                    title = "Cuota Seguro",
-                    amount = 2430000.0,
-                    type = TransactionType.EXPENSE,
-                    category = "Seguros",
-                    paymentMethod = "Debito Directo",
-                    dateMillis = now - (dayMillis * 6),
-                    notes = "Seguro integral"
                 )
             )
         }
@@ -172,13 +250,102 @@ class FinanceRepository(
                     deadline = "2026-12"
                 )
             )
-            goalDao.insertGoal(
-                Goal(
-                    title = "Fondo de Reserva",
-                    targetAmount = 10000000.0,
-                    currentAmount = 4200000.0,
-                    category = "Inversión",
-                    deadline = "2026-09"
+        }
+
+        val currentAssets = allAssets.first()
+        if (currentAssets.isEmpty()) {
+            val now = System.currentTimeMillis()
+            val dayMillis = 86400000L
+            assetDao.insertAsset(
+                Asset(
+                    name = "Volkswagen Gol Trend 2018",
+                    category = "Vehículos",
+                    purchasePrice = 12000000.0,
+                    extraExpenses = 800000.0, // pintura y transferencia
+                    salePrice = 15100000.0,
+                    status = "SOLD",
+                    tags = "#gol #concesionaria #revendedor",
+                    purchaseDateMillis = now - (dayMillis * 25),
+                    saleDateMillis = now - (dayMillis * 5),
+                    notes = "Comprado de oportunidad, se realizó pintura y pulido."
+                )
+            )
+            assetDao.insertAsset(
+                Asset(
+                    name = "Toyota Corolla 2020 XEI",
+                    category = "Vehículos",
+                    purchasePrice = 18500000.0,
+                    extraExpenses = 300000.0,
+                    salePrice = 0.0,
+                    status = "ACTIVE",
+                    tags = "#toyota #enventa",
+                    purchaseDateMillis = now - (dayMillis * 8),
+                    notes = "En preparación para venta. Precio estimado publicación: $21.500.000"
+                )
+            )
+
+            // Seed insights and timeline events
+            aiInsightDao.insertInsight(
+                AiInsight(
+                    title = "Margen de Compra-Venta Vehículos",
+                    content = "La venta del Gol Trend 2018 te dejó una rentabilidad neta del 18.0% sobre el capital invertido en 20 días. Se recomienda reinvertir el retorno en la Toyota Corolla 2020.",
+                    insightType = "INSIGHT",
+                    metricImpact = "+$2.300.000 (18.0% ROI)"
+                )
+            )
+            aiInsightDao.insertInsight(
+                AiInsight(
+                    title = "Diagnóstico Diario de Liquidez",
+                    content = "Cuentas con $4.200.000 de liquidez libre. Estás al 42% del objetivo para la Hilux.",
+                    insightType = "DIGEST",
+                    metricImpact = "Liquidez Optimizada"
+                )
+            )
+
+            appNotificationDao.insertNotification(
+                AppNotification(
+                    title = "¡Gran Venta Registrada!",
+                    message = "El Gol Trend te generó un margen neto de $2.300.000.",
+                    type = "INSIGHT"
+                )
+            )
+            appNotificationDao.insertNotification(
+                AppNotification(
+                    title = "Objetivo Hilux al 42%",
+                    message = "Llegaste a $10.500.000 acumulados.",
+                    type = "GOAL"
+                )
+            )
+
+            timelineEventDao.insertEvent(
+                TimelineEvent(
+                    title = "Venta Cerrada: Gol Trend 2018",
+                    description = "Precio Venta: $15.100.000 | Costo Total: $12.800.000 | Ganancia Neta: $2.300.000 (18% ROI)",
+                    eventType = "ASSET_SALE",
+                    tags = "#gol #ganancia"
+                )
+            )
+            timelineEventDao.insertEvent(
+                TimelineEvent(
+                    title = "Compra Activo: Toyota Corolla 2020",
+                    description = "Inversión inicial: $18.500.000",
+                    eventType = "ASSET_BUY",
+                    tags = "#toyota"
+                )
+            )
+        }
+
+        val profile = userProfileDao.getUserProfileOnce()
+        if (profile == null) {
+            userProfileDao.saveUserProfile(
+                UserProfile(
+                    name = "Martin",
+                    primaryCurrency = "$",
+                    mainFinancialGoal = "Comprar Vehículo / Hilux",
+                    monthlyTargetIncome = 5000000.0,
+                    riskProfile = "Crecimiento",
+                    initialAiDiagnosisSummary = "Tu perfil estratégico está enfocado en crecimiento acelerado y acumulación de capital para la compra de tu vehículo sin comprometer tu liquidez mensual.",
+                    isOnboardingCompleted = true
                 )
             )
         }

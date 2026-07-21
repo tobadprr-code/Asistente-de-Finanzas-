@@ -10,21 +10,21 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-private val ValorDarkColorScheme = darkColorScheme(
-    primary = IndigoAiAccent,
-    onPrimary = TextPrimaryWhite,
-    primaryContainer = DarkSurfaceCardElevated,
-    onPrimaryContainer = TextPrimaryWhite,
-    secondary = CyanAiAccent,
-    onSecondary = ObsidianBackground,
-    tertiary = EmeraldIncome,
-    background = ObsidianBackground,
-    onBackground = TextPrimaryWhite,
-    surface = DarkSurfaceCard,
-    onSurface = TextPrimaryWhite,
-    surfaceVariant = DarkSurfaceCardElevated,
-    onSurfaceVariant = TextSecondaryMuted,
-    outline = DarkBorderLine
+private val NexusDarkColorScheme = darkColorScheme(
+    primary = NexusNeonGreen,
+    onPrimary = NexusBlackPrimary,
+    primaryContainer = NexusBlackSecondary,
+    onPrimaryContainer = NexusPureWhite,
+    secondary = NexusGray300,
+    onSecondary = NexusBlackPrimary,
+    tertiary = NexusIncomeGreen,
+    background = NexusBlackPrimary,
+    onBackground = NexusPureWhite,
+    surface = NexusBlackSecondary,
+    onSurface = NexusPureWhite,
+    surfaceVariant = NexusBlackCard,
+    onSurfaceVariant = NexusGray300,
+    outline = NexusBorderSubtle
 )
 
 @Composable
@@ -32,14 +32,14 @@ fun ValorTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
-    val colorScheme = ValorDarkColorScheme
+    val colorScheme = NexusDarkColorScheme
     val view = LocalView.current
 
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = ObsidianBackground.toArgb()
-            window.navigationBarColor = ObsidianBackground.toArgb()
+            window.statusBarColor = NexusBlackPrimary.toArgb()
+            window.navigationBarColor = NexusBlackPrimary.toArgb()
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
             WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = false
         }
@@ -51,3 +51,4 @@ fun ValorTheme(
         content = content
     )
 }
+

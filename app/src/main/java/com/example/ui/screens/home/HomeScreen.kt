@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -62,6 +63,9 @@ import com.example.ui.theme.TextSecondaryMuted
 import com.example.ui.viewmodel.FinanceViewModel
 import com.example.util.CurrencyFormatter
 
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.outlined.Notifications
+
 @Composable
 fun HomeScreen(
     viewModel: FinanceViewModel,
@@ -72,10 +76,15 @@ fun HomeScreen(
     val summary by viewModel.financialSummary.collectAsState()
     val transactions by viewModel.allTransactions.collectAsState()
     val currencySymbol by viewModel.userCurrency.collectAsState()
+    val userProfile by viewModel.userProfile.collectAsState()
+    val notifications by viewModel.allNotifications.collectAsState()
+    val insights by viewModel.allInsights.collectAsState()
+    val unreadNotificationsCount by viewModel.unreadNotificationsCount.collectAsState()
 
     var showVoiceModal by remember { mutableStateOf(false) }
     var showQuickTextModal by remember { mutableStateOf(false) }
     var showAddDialog by remember { mutableStateOf(false) }
+    var showNotificationsModal by remember { mutableStateOf(false) }
     var selectedTxForEdit by remember { mutableStateOf<Transaction?>(null) }
 
     LazyColumn(
@@ -96,7 +105,7 @@ fun HomeScreen(
             ) {
                 Column {
                     Text(
-                        text = "VALOR",
+                        text = "VALOR AI • ${userProfile?.name?.uppercase() ?: "MARTIN"}",
                         color = IndigoAiAccent,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Black,
@@ -104,34 +113,69 @@ fun HomeScreen(
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "Resumen Inteligente",
+                        text = "Hola, ${userProfile?.name ?: "Martin"}",
                         color = TextPrimaryWhite,
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(DarkSurfaceCard)
-                        .border(1.dp, DarkBorderLine, CircleShape)
-                        .clickable { viewModel.refreshMorningSummary() },
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (isGeneratingSummary) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
-                            color = IndigoAiAccent,
-                            strokeWidth = 2.dp
-                        )
-                    } else {
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Notification Bell Badge
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(DarkSurfaceCard)
+                            .border(1.dp, DarkBorderLine, CircleShape)
+                            .clickable {
+                                viewModel.markNotificationsRead()
+                                showNotificationsModal = true
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
                         Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = "Actualizar AI",
-                            tint = TextSecondaryMuted,
+                            imageVector = if (unreadNotificationsCount > 0) Icons.Filled.Notifications else Icons.Outlined.Notifications,
+                            contentDescription = "Notificaciones",
+                            tint = if (unreadNotificationsCount > 0) EmeraldIncome else TextSecondaryMuted,
                             modifier = Modifier.size(20.dp)
                         )
+                        if (unreadNotificationsCount > 0) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(EmeraldIncome)
+                                    .align(Alignment.TopEnd)
+                                    .padding(4.dp)
+                            )
+                        }
+                    }
+
+                    // Refresh AI Button
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(DarkSurfaceCard)
+                            .border(1.dp, DarkBorderLine, CircleShape)
+                            .clickable { viewModel.refreshMorningSummary() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (isGeneratingSummary) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                color = IndigoAiAccent,
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Actualizar AI",
+                                tint = TextSecondaryMuted,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -431,6 +475,105 @@ fun HomeScreen(
                     viewModel.deleteTransaction(existing.id)
                 }
                 selectedTxForEdit = null
+            }
+        )
+    }
+
+    if (showNotificationsModal) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showNotificationsModal = false },
+            containerColor = DarkSurfaceCard,
+            title = {
+                Text(
+                    text = "Notificaciones & Insights IA",
+                    color = TextPrimaryWhite,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.heightIn(max = 350.dp)
+                ) {
+                    if (notifications.isEmpty() && insights.isEmpty()) {
+                        item {
+                            Text(
+                                text = "Sin notificaciones pendientes.",
+                                color = TextSecondaryMuted,
+                                fontSize = 13.sp
+                            )
+                        }
+                    } else {
+                        items(insights) { insight ->
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(IndigoAiAccent.copy(alpha = 0.15f))
+                                    .border(1.dp, IndigoAiAccent.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                                    .padding(12.dp)
+                            ) {
+                                Column {
+                                    Text(
+                                        text = "💡 ${insight.title}",
+                                        color = IndigoAiAccent,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = insight.content,
+                                        color = TextPrimaryWhite,
+                                        fontSize = 12.sp
+                                    )
+                                    if (insight.metricImpact.isNotBlank()) {
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = insight.metricImpact,
+                                            color = EmeraldIncome,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 11.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        items(notifications) { notif ->
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(DarkBorderLine.copy(alpha = 0.5f))
+                                    .padding(12.dp)
+                            ) {
+                                Column {
+                                    Text(
+                                        text = notif.title,
+                                        color = TextPrimaryWhite,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = notif.message,
+                                        color = TextSecondaryMuted,
+                                        fontSize = 12.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showNotificationsModal = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = IndigoAiAccent)
+                ) {
+                    Text("Entendido")
+                }
             }
         )
     }

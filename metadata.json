@@ -1,6 +1,6 @@
 {
-  "name": "Valor",
-  "description": "Asesor financiero personal inteligente para gestionar tu dinero con registro por voz, resúmenes inteligentes e historial completo.",
+  "name": "NEXUS Finance AI",
+  "description": "Sistema Inteligente de Gestión Financiera, Activos y Proyecciones con IA con Onboarding en 2 minutos y Bootstrap automatizado.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

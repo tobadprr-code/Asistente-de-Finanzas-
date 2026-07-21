@@ -21,6 +21,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
@@ -53,16 +55,20 @@ import com.example.ui.theme.TextPrimaryWhite
 import com.example.ui.theme.TextSecondaryMuted
 import com.example.ui.viewmodel.FinanceViewModel
 
+import androidx.compose.runtime.mutableIntStateOf
+
 @Composable
 fun HistoryScreen(
     viewModel: FinanceViewModel
 ) {
     val filteredTransactions by viewModel.filteredTransactions.collectAsState()
+    val timelineEvents by viewModel.allTimelineEvents.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val selectedCat by viewModel.selectedCategoryFilter.collectAsState()
     val selectedType by viewModel.selectedTypeFilter.collectAsState()
     val currencySymbol by viewModel.userCurrency.collectAsState()
 
+    var activeTab by remember { mutableIntStateOf(0) } // 0: Transactions, 1: Timeline
     var showAddDialog by remember { mutableStateOf(false) }
     var selectedTxForEdit by remember { mutableStateOf<Transaction?>(null) }
 
@@ -70,13 +76,15 @@ fun HistoryScreen(
 
     Scaffold(
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = { showAddDialog = true },
-                containerColor = IndigoAiAccent,
-                contentColor = TextPrimaryWhite,
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Icon(imageVector = Icons.Default.Add, contentDescription = "Nuevo Movimiento")
+            if (activeTab == 0) {
+                FloatingActionButton(
+                    onClick = { showAddDialog = true },
+                    containerColor = IndigoAiAccent,
+                    contentColor = TextPrimaryWhite,
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Icon(imageVector = Icons.Default.Add, contentDescription = "Nuevo Movimiento")
+                }
             }
         },
         containerColor = ObsidianBackground
@@ -91,7 +99,7 @@ fun HistoryScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "HISTORIAL COMPLETO",
+                text = "HISTORIAL Y EVENTOS",
                 color = IndigoAiAccent,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Black,
@@ -99,121 +107,178 @@ fun HistoryScreen(
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = "Movimientos y Registro",
+                text = "Registro Financiero",
                 color = TextPrimaryWhite,
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // 1. Search Bar
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { viewModel.setSearchQuery(it) },
-                placeholder = { Text("Buscar por concepto o notas...", color = TextSecondaryMuted, fontSize = 14.sp) },
-                leadingIcon = { Icon(imageVector = Icons.Default.Search, contentDescription = "Buscar", tint = TextSecondaryMuted) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                shape = RoundedCornerShape(14.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = IndigoAiAccent, unfocusedBorderColor = DarkBorderLine,
-                    focusedTextColor = TextPrimaryWhite, unfocusedTextColor = TextPrimaryWhite,
-                    focusedContainerColor = DarkSurfaceCard, unfocusedContainerColor = DarkSurfaceCard
-                )
-            )
-
             Spacer(modifier = Modifier.height(14.dp))
 
-            // 2. Type Filter Chips (Todos, Ingresos, Egresos)
+            // Sub-tabs: Movimientos vs Línea de Tiempo
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(DarkSurfaceCard)
+                    .padding(4.dp)
             ) {
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .clip(RoundedCornerShape(10.dp))
-                        .background(if (selectedType == null) IndigoAiAccent else DarkSurfaceCard)
-                        .border(1.dp, DarkBorderLine, RoundedCornerShape(10.dp))
-                        .clickable { viewModel.setTypeFilter(null) }
-                        .padding(vertical = 8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(text = "TODOS", color = TextPrimaryWhite, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                }
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(if (selectedType == TransactionType.INCOME) EmeraldIncome else DarkSurfaceCard)
-                        .border(1.dp, DarkBorderLine, RoundedCornerShape(10.dp))
-                        .clickable { viewModel.setTypeFilter(TransactionType.INCOME) }
-                        .padding(vertical = 8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(text = "INGRESOS", color = TextPrimaryWhite, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                }
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(if (selectedType == TransactionType.EXPENSE) RoseExpense else DarkSurfaceCard)
-                        .border(1.dp, DarkBorderLine, RoundedCornerShape(10.dp))
-                        .clickable { viewModel.setTypeFilter(TransactionType.EXPENSE) }
-                        .padding(vertical = 8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(text = "EGRESOS", color = TextPrimaryWhite, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // 3. Category Horizontal Filter Row
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                items(categories) { cat ->
-                    val isSelected = (cat == "Todos" && selectedCat == null) || (cat == selectedCat)
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(if (isSelected) IndigoAiAccent else DarkSurfaceCard)
-                            .border(1.dp, DarkBorderLine, RoundedCornerShape(8.dp))
-                            .clickable { viewModel.setCategoryFilter(if (cat == "Todos") null else cat) }
-                            .padding(horizontal = 12.dp, vertical = 6.dp)
-                    ) {
-                        Text(text = cat, color = TextPrimaryWhite, fontSize = 12.sp)
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // 4. Movements List
-            if (filteredTransactions.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(bottom = 80.dp),
+                        .background(if (activeTab == 0) IndigoAiAccent else DarkSurfaceCard)
+                        .clickable { activeTab = 0 }
+                        .padding(vertical = 10.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "No se encontraron movimientos.",
-                        color = TextSecondaryMuted,
-                        fontSize = 14.sp
+                        text = "MOVIMIENTOS",
+                        color = TextPrimaryWhite,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
                     )
                 }
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(if (activeTab == 1) IndigoAiAccent else DarkSurfaceCard)
+                        .clickable { activeTab = 1 }
+                        .padding(vertical = 10.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "LÍNEA DE TIEMPO",
+                        color = TextPrimaryWhite,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            if (activeTab == 0) {
+                // Search Bar
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { viewModel.setSearchQuery(it) },
+                    placeholder = { Text("Buscar por concepto o notas...", color = TextSecondaryMuted, fontSize = 14.sp) },
+                    leadingIcon = { Icon(imageVector = Icons.Default.Search, contentDescription = "Buscar", tint = TextSecondaryMuted) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    shape = RoundedCornerShape(14.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = IndigoAiAccent, unfocusedBorderColor = DarkBorderLine,
+                        focusedTextColor = TextPrimaryWhite, unfocusedTextColor = TextPrimaryWhite,
+                        focusedContainerColor = DarkSurfaceCard, unfocusedContainerColor = DarkSurfaceCard
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Type Filter Chips
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(if (selectedType == null) IndigoAiAccent else DarkSurfaceCard)
+                            .border(1.dp, DarkBorderLine, RoundedCornerShape(10.dp))
+                            .clickable { viewModel.setTypeFilter(null) }
+                            .padding(vertical = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(text = "TODOS", color = TextPrimaryWhite, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(if (selectedType == TransactionType.INCOME) EmeraldIncome else DarkSurfaceCard)
+                            .border(1.dp, DarkBorderLine, RoundedCornerShape(10.dp))
+                            .clickable { viewModel.setTypeFilter(TransactionType.INCOME) }
+                            .padding(vertical = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(text = "INGRESOS", color = TextPrimaryWhite, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(if (selectedType == TransactionType.EXPENSE) RoseExpense else DarkSurfaceCard)
+                            .border(1.dp, DarkBorderLine, RoundedCornerShape(10.dp))
+                            .clickable { viewModel.setTypeFilter(TransactionType.EXPENSE) }
+                            .padding(vertical = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(text = "EGRESOS", color = TextPrimaryWhite, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Category Horizontal Filter Row
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    items(categories) { cat ->
+                        val isSelected = (cat == "Todos" && selectedCat == null) || (cat == selectedCat)
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (isSelected) IndigoAiAccent else DarkSurfaceCard)
+                                .border(1.dp, DarkBorderLine, RoundedCornerShape(8.dp))
+                                .clickable { viewModel.setCategoryFilter(if (cat == "Todos") null else cat) }
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Text(text = cat, color = TextPrimaryWhite, fontSize = 12.sp)
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Movements List
+                if (filteredTransactions.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(bottom = 80.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "No se encontraron movimientos.",
+                            color = TextSecondaryMuted,
+                            fontSize = 14.sp
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        items(filteredTransactions) { tx ->
+                            TransactionItemCard(
+                                transaction = tx,
+                                currencySymbol = currencySymbol,
+                                onClick = { selectedTxForEdit = tx }
+                            )
+                        }
+                        item { Spacer(modifier = Modifier.height(80.dp)) }
+                    }
+                }
             } else {
+                // Timeline Events View
                 LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    items(filteredTransactions) { tx ->
-                        TransactionItemCard(
-                            transaction = tx,
-                            currencySymbol = currencySymbol,
-                            onClick = { selectedTxForEdit = tx }
-                        )
+                    items(timelineEvents) { event ->
+                        TimelineEventCard(event = event)
                     }
                     item { Spacer(modifier = Modifier.height(80.dp)) }
                 }
@@ -255,5 +320,63 @@ fun HistoryScreen(
                 selectedTxForEdit = null
             }
         )
+    }
+}
+
+@Composable
+private fun TimelineEventCard(event: com.example.data.model.TimelineEvent) {
+    val dateStr = remember(event.timestampMillis) {
+        val sdf = java.text.SimpleDateFormat("dd MMM • HH:mm", java.util.Locale.getDefault())
+        sdf.format(java.util.Date(event.timestampMillis))
+    }
+
+    val eventColor = when (event.eventType) {
+        "ASSET_SALE" -> EmeraldIncome
+        "ASSET_BUY" -> IndigoAiAccent
+        "GOAL_PROGRESS" -> IndigoAiAccent
+        else -> TextSecondaryMuted
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, DarkBorderLine, RoundedCornerShape(14.dp)),
+        colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = DarkSurfaceCard),
+        shape = RoundedCornerShape(14.dp)
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = event.title,
+                    color = TextPrimaryWhite,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = dateStr,
+                    color = TextSecondaryMuted,
+                    fontSize = 11.sp
+                )
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = event.description,
+                color = TextSecondaryMuted,
+                fontSize = 12.sp
+            )
+            if (event.tags.isNotBlank()) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = event.tags,
+                    color = eventColor,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
     }
 }

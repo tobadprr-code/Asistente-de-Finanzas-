@@ -24,14 +24,40 @@ import kotlinx.coroutines.launch
 class FinanceViewModel(application: Application) : AndroidViewModel(application) {
 
     private val database = AppDatabase.getDatabase(application)
-    private val repository = FinanceRepository(database.transactionDao(), database.goalDao())
+    private val repository = FinanceRepository(
+        transactionDao = database.transactionDao(),
+        goalDao = database.goalDao(),
+        userProfileDao = database.userProfileDao(),
+        assetDao = database.assetDao(),
+        timelineEventDao = database.timelineEventDao(),
+        aiInsightDao = database.aiInsightDao(),
+        appNotificationDao = database.appNotificationDao()
+    )
     private val aiService = GeminiFinanceService()
+
+    val userProfile: StateFlow<com.example.data.model.UserProfile?> = repository.userProfile
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     val allTransactions: StateFlow<List<Transaction>> = repository.allTransactions
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val allGoals: StateFlow<List<Goal>> = repository.allGoals
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allAssets: StateFlow<List<com.example.data.model.Asset>> = repository.allAssets
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allTimelineEvents: StateFlow<List<com.example.data.model.TimelineEvent>> = repository.allTimelineEvents
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allInsights: StateFlow<List<com.example.data.model.AiInsight>> = repository.allInsights
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allNotifications: StateFlow<List<com.example.data.model.AppNotification>> = repository.allNotifications
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val unreadNotificationsCount: StateFlow<Int> = repository.unreadNotificationsCount
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
     val financialSummary = repository.financialSummary
         .stateIn(
@@ -48,6 +74,12 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
 
     private val _isGeneratingSummary = MutableStateFlow<Boolean>(false)
     val isGeneratingSummary: StateFlow<Boolean> = _isGeneratingSummary.asStateFlow()
+
+    private val _isAiThinking = MutableStateFlow<Boolean>(false)
+    val isAiThinking: StateFlow<Boolean> = _isAiThinking.asStateFlow()
+
+    private val _activePendingSession = MutableStateFlow<com.example.data.remote.PendingTransactionSession?>(null)
+    val activePendingSession: StateFlow<com.example.data.remote.PendingTransactionSession?> = _activePendingSession.asStateFlow()
 
     private val _chatMessages = MutableStateFlow<List<ChatMessage>>(emptyList())
     val chatMessages: StateFlow<List<ChatMessage>> = _chatMessages.asStateFlow()
@@ -121,23 +153,46 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
         _chatMessages.value = _chatMessages.value + userMsg
 
         viewModelScope.launch {
+            _isAiThinking.value = true
+            val profile = userProfile.value
+            val userName = profile?.name ?: "Usuario"
+            val userAccounts = profile?.activeAccounts ?: "Efectivo, Mercado Pago, Banco"
             val summary = financialSummary.value
             val txs = allTransactions.value
+            val currentSession = _activePendingSession.value
 
-            when (val result = aiService.parseOrAdviseMessage(prompt, summary.totalBalance, txs)) {
+            val result = aiService.processConversationalMessage(
+                userPrompt = prompt,
+                pendingSession = currentSession,
+                userName = userName,
+                userAccounts = userAccounts,
+                totalBalance = summary.totalBalance,
+                recentTx = txs
+            )
+
+            _isAiThinking.value = false
+
+            when (result) {
                 is AiResponseResult.SuccessText -> {
+                    _activePendingSession.value = null
                     val aiMsg = ChatMessage(sender = MessageSender.AI, text = result.text)
                     _chatMessages.value = _chatMessages.value + aiMsg
                 }
+                is AiResponseResult.IncompleteTransaction -> {
+                    _activePendingSession.value = result.pendingSession
+                    val aiMsg = ChatMessage(sender = MessageSender.AI, text = result.promptText)
+                    _chatMessages.value = _chatMessages.value + aiMsg
+                }
                 is AiResponseResult.ParsedTransaction -> {
-                    // Automatically record transaction
+                    _activePendingSession.value = null
+                    // Tool Layer Execution: create_transaction()
                     val newTx = Transaction(
                         title = result.title,
                         amount = result.amount,
                         type = result.type,
                         category = result.category,
                         paymentMethod = result.paymentMethod,
-                        notes = "Registrado vía IA"
+                        notes = "Registrado vía Conversación NEXUS IA"
                     )
                     repository.insertTransaction(newTx)
                     refreshMorningSummary()
@@ -216,6 +271,64 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    // Asset CRUD
+    fun addAsset(
+        name: String,
+        category: String,
+        purchasePrice: Double,
+        extraExpenses: Double,
+        tags: String,
+        notes: String
+    ) {
+        viewModelScope.launch {
+            val asset = com.example.data.model.Asset(
+                name = name,
+                category = category,
+                purchasePrice = purchasePrice,
+                extraExpenses = extraExpenses,
+                tags = tags,
+                notes = notes
+            )
+            repository.insertAsset(asset)
+        }
+    }
+
+    fun sellAsset(asset: com.example.data.model.Asset, salePrice: Double) {
+        viewModelScope.launch {
+            val updated = asset.copy(
+                salePrice = salePrice,
+                status = "SOLD",
+                saleDateMillis = System.currentTimeMillis()
+            )
+            repository.updateAsset(updated)
+            // Automatically log income transaction
+            val saleIncomeTx = Transaction(
+                title = "Venta Activo: ${asset.name}",
+                amount = salePrice,
+                type = TransactionType.INCOME,
+                category = "Venta Activos",
+                paymentMethod = "Transferencia",
+                tags = asset.tags,
+                assetId = asset.id,
+                notes = "Cierre de venta con ganancia de $${updated.profit}"
+            )
+            repository.insertTransaction(saleIncomeTx)
+            refreshMorningSummary()
+        }
+    }
+
+    fun deleteAsset(id: Long) {
+        viewModelScope.launch {
+            repository.deleteAsset(id)
+        }
+    }
+
+    fun markNotificationsRead() {
+        viewModelScope.launch {
+            repository.markNotificationsRead()
+        }
+    }
+
     fun setSearchQuery(query: String) {
         _searchQuery.value = query
     }
@@ -230,5 +343,62 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
 
     fun setCurrency(symbol: String) {
         _userCurrency.value = symbol
+    }
+
+    fun saveUserProfile(profile: com.example.data.model.UserProfile) {
+        viewModelScope.launch {
+            repository.saveUserProfile(profile)
+            _userCurrency.value = profile.primaryCurrency
+        }
+    }
+
+    suspend fun processOnboardingDiagnosis(
+        name: String,
+        currency: String,
+        mainGoal: String,
+        monthlyIncome: Double,
+        answers: String
+    ): String {
+        val diagnosis = aiService.generateOnboardingDiagnosis(
+            userName = name,
+            mainGoal = mainGoal,
+            monthlyIncome = monthlyIncome,
+            currency = currency,
+            answers = answers
+        )
+        val profile = com.example.data.model.UserProfile(
+            name = name,
+            primaryCurrency = currency,
+            mainFinancialGoal = mainGoal,
+            monthlyTargetIncome = monthlyIncome,
+            riskProfile = "Crecimiento",
+            initialAiDiagnosisSummary = diagnosis,
+            isOnboardingCompleted = true
+        )
+        repository.saveUserProfile(profile)
+        _userCurrency.value = currency
+        return diagnosis
+    }
+
+    fun completeOnboardingWithFlow(
+        name: String,
+        occupation: String,
+        accounts: List<String>,
+        importDemoData: Boolean
+    ) {
+        viewModelScope.launch {
+            if (importDemoData) {
+                repository.seedInitialDataIfEmpty()
+            }
+            val accountsString = accounts.joinToString(", ").ifBlank { "Efectivo" }
+            val current = repository.userProfile.first()
+            val profile = (current ?: com.example.data.model.UserProfile()).copy(
+                name = name.ifBlank { "Martin" },
+                occupation = occupation.ifBlank { "Compra/Venta de autos" },
+                activeAccounts = accountsString,
+                isOnboardingCompleted = true
+            )
+            repository.saveUserProfile(profile)
+        }
     }
 }
